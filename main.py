@@ -48,6 +48,12 @@ def get_api_playlist_link(url): #makes the api url from the user-entered url
 
     return "https://api.spotify.com/v1/playlists/" + playlist_id
 
+class Track:
+    def __init__(self, name, popularity, date) -> None:
+        self.name = name
+        self.popularity = popularity
+        self.date = date
+
 #sends a request to the spotify api to retrieve the user's playlist
 def get_top_songs(access_token, url):
     url = f"{get_api_playlist_link(url)}"
