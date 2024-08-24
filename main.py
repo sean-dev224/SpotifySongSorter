@@ -49,10 +49,16 @@ def get_api_playlist_link(url): #makes the api url from the user-entered url
     return "https://api.spotify.com/v1/playlists/" + playlist_id
 
 class Track:
-    def __init__(self, name, popularity, date) -> None:
+    def __init__(self, name, popularity, date, album, artist, track_uri) -> None:
         self.name = name
         self.popularity = popularity
         self.date = date
+        self.album = album
+        self.artist = artist
+        self.track_uri = track_uri
+
+    def __str__(self) -> str:
+        return f"{self.name} || {self.popularity}\n"
 
 #sends a request to the spotify api to retrieve the user's playlist
 def get_top_songs(access_token, url):
@@ -62,13 +68,28 @@ def get_top_songs(access_token, url):
     result = get(url=url, headers=headers)
     json_result = json.loads(result.content)
 
-    name = json_result["name"]
+    playlist_name = json_result["name"]
     tracks = []
-    for i in range(len(json_result["tracks"]["items"])):
-        tracks.append((json_result["tracks"]["items"][i]["track"]["name"], 
-                       json_result["tracks"]["items"][i]["track"]["popularity"]))
-        
-    return sorted(tracks, key=lambda track: track[1], reverse=True)
+    
+    for i in range(len(json_result["tracks"]["items"]) - 1):
+        name = json_result["tracks"]["items"][i]["track"]["name"]
+        popularity = json_result["tracks"]["items"][i]["track"]["popularity"]
+        date = json_result["tracks"]["items"][i]["track"]["album"]["release_date"]
+        album = json_result["tracks"]["items"][i]["track"]["album"]["name"]
+        artist = json_result["tracks"]["items"][i]["track"]["artists"][0]["name"]
+        track_uri = json_result["tracks"]["items"][i]["track"]["uri"]
+
+        track = Track(name, popularity, date, album, artist, track_uri)
+        tracks.append(track)
+    return tracks
+
+def popularity_sort(tracks):
+    new_list = sorted(tracks, key=lambda x: x.popularity, reverse=True)
+    return new_list
+
+def print_tracks(tracks):
+    song_list = " ".join([f"{Track}\n" for Track in tracks])
+    return song_list
 
 #default page for the website. this automatically redirects the user to spotify's authorization page
 @app.route('/', methods=['POST', 'GET'])
@@ -89,8 +110,12 @@ def callback():
     access_token = get_access_token(code)
 
     if access_token:
-        song_list = get_top_songs(access_token, playlist_url)
-        return render_template('songs.html', data=song_list)
+        tracks = get_top_songs(access_token, playlist_url)
+        sorted_tracks = popularity_sort(tracks)
+        print(print_tracks(sorted_tracks))
+        return print_tracks(sorted_tracks)
+        #return render_template('songs.html', data=song_list)
+        
     else:
         return "Error: unable to retrieve access token"
 
