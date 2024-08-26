@@ -3,6 +3,7 @@ import base64
 import json
 from requests import post, get, put
 from flask import Flask, request, redirect, render_template
+from tabulate import tabulate
 
 #dotenv makes it easy to load env files, which store environment variables.
 from dotenv import load_dotenv
@@ -58,10 +59,10 @@ class Track:
         self.track_uri = track_uri
 
     def __str__(self) -> str:
-        return f"{self.name} || {self.popularity}\n"
+        return f"{self.name} by {self.artist}, {self.date}"
 
 #sends a request to the spotify api to retrieve the user's playlist
-def get_top_songs(access_token, url):
+def get_songs(access_token, url):
     url = f"{get_api_playlist_link(url)}"
     headers = {"Authorization": "Bearer " + access_token}
 
@@ -81,24 +82,45 @@ def get_top_songs(access_token, url):
 
         track = Track(name, popularity, date, album, artist, track_uri)
         tracks.append(track)
-    return tracks
+    return (playlist_name, tracks)
 
-def popularity_sort(tracks):
-    new_list = sorted(tracks, key=lambda x: x.popularity, reverse=True)
-    return new_list
+def sort_tracks(tracks, sort_type):
+    match sort_type:
+        case "name":
+            new_list = sorted(tracks, key=lambda x: x.name, reverse=True)
+            return new_list
+        
+        case "popularity":
+            new_list = sorted(tracks, key=lambda x: x.popularity, reverse=True)
+            return new_list
+        
+        case "date":
+            new_list = sorted(tracks, key=lambda x: x.date, reverse=True)
+            return new_list
+        
+        case "artist":
+            new_list = sorted(tracks, key=lambda x: (x.artist, x.date))
+            return new_list
 
 def print_tracks(tracks):
     song_list = " ".join([f"{Track}\n" for Track in tracks])
     return song_list
 
+def listify_tracks(tracks):
+    tracks_as_list = [["Track Name", "Artist", "Album", "Release Date", "Popularity Score"]]
+    for x in tracks:
+        tracks_as_list.append([x.name, x.artist, x.album, x.date, str(x.popularity)])
+    print(tracks_as_list)
+    return tracks_as_list
+
 #default page for the website. this automatically redirects the user to spotify's authorization page
 @app.route('/', methods=['POST', 'GET'])
 @app.route('/home')
 def index():
-
     if request.method == 'POST':
-        global playlist_url 
+        global playlist_url, sort_type
         playlist_url = request.form.get("playlist")
+        sort_type = request.form.get("sort_type")
         return redirect(get_authorization_url())
 
     return render_template('index.html')
@@ -107,17 +129,21 @@ def index():
 def callback():
     #this gets the code from the url
     code = request.args.get('code')
+    global access_token
     access_token = get_access_token(code)
 
     if access_token:
-        tracks = get_top_songs(access_token, playlist_url)
-        sorted_tracks = popularity_sort(tracks)
-        print(print_tracks(sorted_tracks))
-        return print_tracks(sorted_tracks)
-        #return render_template('songs.html', data=song_list)
+        return redirect("/songs")
         
     else:
         return "Error: unable to retrieve access token"
+    
+@app.route('/songs')
+def songs():
+    playlist_name, tracks = get_songs(access_token, playlist_url)
+    sorted_tracks = sort_tracks(tracks, sort_type)
+    trackslist = listify_tracks(sorted_tracks)
+    return render_template('songs.html', data=trackslist, playlist_name=playlist_name, sort_type=sort_type)
 
 
 
