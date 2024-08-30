@@ -22,7 +22,7 @@ def get_authorization_url(): #makes the url to prompt a user to authorize this p
         "client_id": client_id,
         "response_type": "code",
         "redirect_uri": redirect_uri,
-        "scope": "playlist-read-private"
+        "scope": "playlist-read-private playlist-modify-public playlist-modify-private"
     }
     url_params = "&".join([f"{key}={value}" for key, value in params.items()])
     return f"{auth_url}?{url_params}"
@@ -102,20 +102,14 @@ def sort_tracks(tracks, sort_type):
             new_list = sorted(tracks, key=lambda x: (x.artist, x.date))
             return new_list
 
-def print_tracks(tracks):
-    song_list = " ".join([f"{Track}\n" for Track in tracks])
-    return song_list
-
 def listify_tracks(tracks):
     tracks_as_list = [["Track Name", "Artist", "Album", "Release Date", "Popularity Score"]]
     for x in tracks:
         tracks_as_list.append([x.name, x.artist, x.album, x.date, str(x.popularity)])
-    print(tracks_as_list)
     return tracks_as_list
 
 #default page for the website. this automatically redirects the user to spotify's authorization page
 @app.route('/', methods=['POST', 'GET'])
-@app.route('/home')
 def index():
     if request.method == 'POST':
         global playlist_url, sort_type
@@ -141,11 +135,16 @@ def callback():
 @app.route('/songs')
 def songs():
     playlist_name, tracks = get_songs(access_token, playlist_url)
+    global sorted_tracks
     sorted_tracks = sort_tracks(tracks, sort_type)
     trackslist = listify_tracks(sorted_tracks)
     return render_template('songs.html', data=trackslist, playlist_name=playlist_name, sort_type=sort_type)
 
 
 
+
+def main():
+    app.run(port=8888, debug=True)    
+
 if __name__ == "__main__":
-    app.run(port=8888, debug=True)
+    main()
